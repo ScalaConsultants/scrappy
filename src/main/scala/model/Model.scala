@@ -9,7 +9,7 @@ case class Car (brand: String,
                 model: String,
                 productionYear: Int,
                 mileage: Int,
-                engineVolumeCubicCentimeters: Int,
+                //engineVolumeCubicCentimeters: Int,
                 horsePower: Int,
                 fuelType: FuelType,
                 transmissionType: TransmissionType,
@@ -35,6 +35,7 @@ object Car {
     case object Gasoline extends FuelType {val serialized = "Gasoline"}
     case object Diesel   extends FuelType {val serialized = "Diesel"}
     case object LPG      extends FuelType {val serialized = "LPG"}
+    case object Hybrid   extends FuelType {val serialized = "Hybrid"}
 
     sealed trait TransmissionType extends Parameter
     case object Manual    extends TransmissionType {val serialized = "Manual"}
@@ -46,5 +47,7 @@ object Car {
     case object Wagon       extends Category {val serialized = "Wagon"}
     case object Convertible extends Category {val serialized = "Convertible"}
     case object Van         extends Category {val serialized = "Van"}
+    case object Minivan     extends Category {val serialized = "Minivan"}
     case object SUV         extends Category {val serialized = "SUV"}
+    case object Pickup      extends Category {val serialized = "Pickup"}
 }

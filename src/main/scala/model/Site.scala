@@ -7,6 +7,9 @@ import java.util.Currency
 import com.typesafe.scalalogging.LazyLogging
 import model.Car._
 import org.jsoup.Jsoup
+import org.jsoup.nodes.Element
+
+import scala.util.Try
 
 sealed trait Site[M <: Model] {
     val name: String
@@ -43,10 +46,7 @@ object OtomotoSite extends LazyLogging {
             case "text/html" => {
                 val doc = response.parse()
 
-                val carPriceElement = doc.getElementsByTag("span").asScala.filter(e => e.attr("class") == "offer-price__number")
-
-                val carPriceValue        = carPriceElement.head.text().filter(_.isDigit).toInt
-                val carPriceCurrencyCode = carPriceElement.head.child(0).text()
+                val carPriceElement = doc.getElementsByTag("span").asScala.find(e => e.attr("class") == "offer-price__number")
 
                 val carParametersMap = doc.getElementsByTag("li").asScala
                     .filter(e => e.attr("class") == "offer-params__item")
@@ -59,16 +59,16 @@ object OtomotoSite extends LazyLogging {
                 def getParameter(key: String) = carParametersMap.get(key) match {
                     case Some(value) => Some(value)
                     case None        =>
-                        logger.debug("Couldn't find key " + key + " for " + itemUrl.getPath)
+                        logger.debug("Couldn't find key \"" + key + "\" for " + itemUrl.getPath)
                         None
                 }
 
                 for {
                     brand                <- getParameter("Marka")
-                    model                <- getParameter("Model")
+                    model                <- getParameter("Model").map(_.replace(',', ' '))
                     productionYear       <- getParameter("Rok produkcji").map(_.filter(_.isDigit).toInt)
                     mileage              <- getParameter("Przebieg").map(_.filter(_.isDigit).toInt)
-                    engineVolume         <- getParameter("Pojemność skokowa").map(_.filter(_.isDigit).toInt)
+                    //engineVolume         <- getParameter("Pojemność skokowa").map(_.filter(_.isDigit).toInt)
                     horsePower           <- getParameter("Moc").map(_.filter(_.isDigit).toInt)
                     fuelType             <- getParameter("Rodzaj paliwa").flatMap(getFuelType)
                     transmissionType     <- getParameter("Skrzynia biegów").flatMap(getTransmissionType)
@@ -82,12 +82,16 @@ object OtomotoSite extends LazyLogging {
                     isAccidentFree       <- getParameter("Bezwypadkowy").flatMap(getBoolean)
                     isCertifiedServiced  <- getParameter("Serwisowany w ASO").flatMap(getBoolean)
                     isUsed               <- getParameter("Stan").flatMap(getUsageBoolean)
+
+                    price                <- carPriceElement.map(_.text().filter(_.isDigit).toInt)
+                    currencyCode         <- carPriceElement.flatMap(_.children().asScala.headOption).map(_.text())
+                    currency             <- Try(Currency.getInstance(currencyCode)).toOption
                 } yield Car(
                     brand,
                     model,
                     productionYear,
                     mileage,
-                    engineVolume,
+                    //engineVolume,
                     horsePower,
                     fuelType,
                     transmissionType,
@@ -101,8 +105,9 @@ object OtomotoSite extends LazyLogging {
                     isAccidentFree,
                     isCertifiedServiced,
                     isUsed,
-                    carPriceValue,
-                    Currency.getInstance(carPriceCurrencyCode))
+                    price,
+                    currency
+                )
             }
             case _ => None
         }
@@ -112,16 +117,19 @@ object OtomotoSite extends LazyLogging {
         case "Benzyna"     => Some(Gasoline)
         case "Diesel"      => Some(Diesel)
         case "Benzyna+LPG" => Some(LPG)
-        case _         =>
-            logger.error("Failed to map string " + text + " with fuel type string to concrete type")
+        case "Hybryda"     => Some(Hybrid)
+        case _             =>
+            logger.error("Failed to map string \"" + text + "\" with fuel type string to concrete type")
             None
     }
 
     private def getTransmissionType(text: String) = text match {
-        case "Manualna"     => Some(Manual)
-        case "Automatyczna" => Some(Automatic)
-        case _              =>
-            logger.error("Failed to map string " + text + " with transmission type string to concrete type")
+        case "Manualna"                              => Some(Manual)
+        case "Automatyczna"                          => Some(Automatic)
+        case "Automatyczna hydrauliczna (klasyczna)" => Some(Automatic)
+        case "Automatyczna dwusprzęgłowa (DCT, DSG)" => Some(Automatic)
+        case _                                       =>
+            logger.error("Failed to map string \"" + text + "\" with transmission type string to concrete type")
             None
     }
 
@@ -131,9 +139,11 @@ object OtomotoSite extends LazyLogging {
         case "Kombi"          => Some(Wagon)
         case "Kabriolet"      => Some(Convertible)
         case "Van (minibus)"  => Some(Van)
+        case "Minivan"        => Some(Minivan)
         case "SUV"            => Some(SUV)
+        case "Pick-up"        => Some(Pickup)
         case _                =>
-            logger.error("Failed to map string " + text + " with category to concrete type")
+            logger.error("Failed to map string \"" + text + "\" with category to concrete type")
             None
     }
 
@@ -141,7 +151,7 @@ object OtomotoSite extends LazyLogging {
         case "Tak" => Some(true)
         case "Nie" => Some(false)
         case _     =>
-            logger.error("Failed to map string " + text + " with boolean to concrete type")
+            logger.error("Failed to map string \"" + text + "\" with boolean to concrete type")
             None
     }
 
@@ -149,7 +159,7 @@ object OtomotoSite extends LazyLogging {
         case "Nowe"    => Some(false)
         case "Używane" => Some(true)
         case _         =>
-            logger.error("Failed to map string " + text + " with usage state to concrete type")
+            logger.error("Failed to map string \"" + text + "\" with usage state to concrete type")
             None
     }
 }

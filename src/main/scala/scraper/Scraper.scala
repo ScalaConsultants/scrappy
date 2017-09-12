@@ -12,6 +12,9 @@ import model.Serializable._
 import scala.util.{Failure, Success, Try}
 
 object Scraper extends LazyLogging{
+    //TODO: The site scraping shouldn't happen everytime we want to serialize to a different format
+    //Maybe an algebraic type with possible targets + TC with methods for writing to it?
+
     def scrapeToCSV[S <: Site[_] : Scrapable](site: S) = {
         logger.debug("Attempting to scrape site: " + site.url.toString)
 

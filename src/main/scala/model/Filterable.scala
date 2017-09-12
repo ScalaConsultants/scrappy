@@ -39,7 +39,7 @@ object Filterable {
                 }
                 case UsageFilter(isUsed: Boolean) => {
                     val usedValue = if (isUsed) "used" else "new"
-                    val appendix = "/?search[new_used]=/" + usedValue
+                    val appendix = "/?search[new_used]=" + usedValue
 
                     OtomotoSite(site.path + appendix)
                 }

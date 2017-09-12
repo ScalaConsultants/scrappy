@@ -25,9 +25,6 @@ object Scrapable extends LazyLogging {
 
     implicit val OtomotoSiteIsScrapable: Scrapable[OtomotoSite] =
         new Scrapable[OtomotoSite] {
-
-            def getName(site: OtomotoSite): String = site.name
-
             def scrape(site: OtomotoSite): Either[ScrappingError, Seq[Model]] = {
                 val link        = site.url.toString
                 val response    = Jsoup.connect(link).ignoreContentType(true).execute()
@@ -40,12 +37,16 @@ object Scrapable extends LazyLogging {
                         val indexSelectorContent = doc.getElementsByTag("span").asScala.filter(e => e.attr("class") == "page").map(e => e.text())
                         val lastPageNumber = indexSelectorContent.filter(t => t.forall(_.isDigit)).map(_.toInt).max
 
+                        //FIXME: The pages might be non-existent when the traverse and scrape happen
                         Right(Range(1, lastPageNumber).flatMap { pageNumber =>
                             val indexLink        = link + s"&page=$pageNumber"
                             val indexResponse    = Jsoup.connect(indexLink).ignoreContentType(true).execute()
                             val indexContentType = response.contentType().split(";").head
 
                             logger.debug("Scraping page: " + pageNumber)
+
+                            //FIXME: Hack for anti-DDoS port blocking
+                            if(pageNumber % 50 == 0) Thread.sleep(5 * 60 * 1000)
 
                             indexContentType match {
                                 case "text/html" => {
